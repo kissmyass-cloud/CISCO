@@ -1,0 +1,31 @@
+import os 
+from netmiko import ConnectHandler
+
+IP_List = open("C:\\Users\\adityavarma.tupakula\\Desktop\\ap_ip_list.txt")
+for IP in IP_List:
+	RTR ={
+		"device_type": "cisco_ios",
+        	"ip":   IP,
+        	"username": "cisco",
+        	"password": "Cisco",
+		}
+			net_connect = ConnectHandler(**RTR)
+
+			run_cmd = net_connect.send_command("sh ip int br | include Dot11Radio0")
+
+			print(run_cmd, file=open("C:\AP\output.txt", "a"))
+
+			r_output = open("C:\AP\output.txt", "r")
+
+			rl_output = r_output.readlines()
+
+			find_line = str(rl_output[0])
+
+			find_word = find_line.rfind("reset")
+
+				if find_word == -1:
+					print("Radio interface is up")
+					else:
+						net_connect.send_command("reload", expect_string='[confirm]’)
+						net_connect.send_command("\n")
+
