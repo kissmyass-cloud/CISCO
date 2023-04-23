@@ -45,27 +45,21 @@ for IP in AP_List:
         print(access_class_name)
 
         run_cmd2 = net_connect.send_command('show ip access-list ' + access_class_name)
-
         print(run_cmd2, file=open("/home/ubuntu/Desktop/output_ACL.txt", "w"))
-
         r_ACLoutput = open("/home/ubuntu/Desktop/output_ACL.txt", "r")
-
         rl_ACLoutput = r_ACLoutput.read()
-
         rl_ACLoutput_str = ''.join(rl_ACLoutput)
-
         findacl = rl_ACLoutput_str.find("IP")
-
         if findacl != -1:
             find_acl_type = rl_ACLoutput[:findacl].strip()
             print(find_acl_type)
         else:
-            print("IP not found in text.")
-
+            print("Unknown ACL type")
+#ACL Rules
         Extacl_rule = ['permit tcp 172.23.192.0 0.0.63.255 eq 22']
-
         Staacl_rule = ['permit 172.23.192.0 0.0.63.255']
-        # if it does not find reset it will move-on to next ap and if it does it will reboot the ap.
+        
+# if it does not find reset it will move-on to next ap and if it does it will reboot the ap.
         if find_acl_type == ("Extended"):
             print("Node " + IP + "is using Extended ALC")
             ACL_commands = ['ip access-list extended ' + access_class_name] + Extacl_rule
