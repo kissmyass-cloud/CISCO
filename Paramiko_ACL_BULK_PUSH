@@ -1,0 +1,76 @@
+import os
+import re
+import paramiko
+
+# File location for the list of IP addresses
+AP_List = open("/home/ubuntu/Desktop/ap_ip_list.txt")
+
+# Tries SSH, Telnet, and if both fail prints unable to connect.
+for IP in AP_List:
+    try:
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(IP, username='NEGAdmin', password='Chan8eHappens!')
+        print("SSH Connection established to Node " + IP)
+    except Exception as e_ssh:
+        try:
+            # You can add your Telnet connection code here if needed.
+            print("Telnet Connection is not implemented in this example.")
+        except Exception as e_telnet:
+            print(f"Unable to connect Node {IP}: {e_telnet}")
+            continue
+
+    # sends int br to the AP
+    stdin, stdout, stderr = ssh.exec_command("show run | sec vty")
+    run_cmd = stdout.read().decode()
+    
+    # saves the above output to a file
+    with open("/home/ubuntu/Desktop/output.txt", "w") as output_file:
+        print(run_cmd, file=output_file)
+
+    # Opens the file locally and looks for name reset
+    with open("/home/ubuntu/Desktop/output.txt", "r") as r_output:
+        rl_output = r_output.readlines()
+        rl_output_str = ''.join(rl_output)  # convert list to string
+        match = re.search(r'access-class\s+(\S+)', rl_output_str)
+        print(match)
+        if match is None:
+            print(f"No Access list attached to VTY line on the Node {IP}")
+        else:
+            access_class_name = match.group(1)
+            # shows the line it is seeing on the device
+            print(access_class_name)
+
+            stdin, stdout, stderr = ssh.exec_command('show ip access-list ' + access_class_name)
+            run_cmd2 = stdout.read().decode()
+            
+            with open("/home/ubuntu/Desktop/output_ACL.txt", "w") as output_ACL_file:
+                print(run_cmd2, file=output_ACL_file)
+
+            with open("/home/ubuntu/Desktop/output_ACL.txt", "r") as r_ACLoutput:
+                rl_ACLoutput = r_ACLoutput.read()
+                rl_ACLoutput_str = ''.join(rl_ACLoutput)
+                findacl = rl_ACLoutput_str.find("IP")
+                if findacl != -1:
+                    find_acl_type = rl_ACLoutput[:findacl].strip()
+                    print(find_acl_type)
+                else:
+                    print("Unknown ACL type")
+
+            # ACL Rules
+            Extacl_rule = ['permit tcp 172.23.192.0 0.0.63.255 eq 22']
+            Staacl_rule = ['permit 172.23.192.0 0.0.63.255']
+
+            # if it does not find reset it will move-on to the next AP and if it does, it will reboot the AP.
+            if find_acl_type == "Extended":
+                print(f"Node {IP} is using Extended ALC")
+                ACL_commands = ['ip access-list extended ' + access_class_name] + Extacl_rule
+                ssh.exec_command('\n'.join(ACL_commands))
+                ssh.exec_command("write memory")
+                ssh.close()
+            elif find_acl_type == "Standard":
+                print(f"Node {IP} is using Standard ALC")
+                ACL_commands = ['ip access-list standard ' + access_class_name] + Staacl_rule
+                ssh.exec_command('\n'.join(ACL_commands))
+                ssh.exec_command("write memory")
+                ssh.close()
